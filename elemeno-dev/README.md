@@ -63,11 +63,16 @@ PowerShell:
 cd elemeno-dev/ansible
 ansible-playbook \
   -i inventory/dev/hosts.ini \
-  --skip-tags "import-postgres,import-generic-sqlite-db,upgrade-postgres,run-postgres-vacuum" \
+  --skip-tags "import-postgres,import-generic-sqlite-db,upgrade-postgres,run-postgres-vacuum,start-group,restart-group,stop,stop-all,stop-group" \
   playbooks/elemeno-dev.yml
 ```
 
-The `--skip-tags` flag matches the CI workflow and excludes destructive maintenance flows that the upstream Postgres role gates only by tag (so they would otherwise run on every deploy). To invoke any of them deliberately, see [Maintenance tasks](#maintenance-tasks) below.
+The `--skip-tags` flag matches the CI workflow and excludes maintenance flows from upstream MASH/devture roles that are gated only by tag and would otherwise run on every deploy. The list groups into:
+
+- Postgres role maintenance: `import-postgres`, `import-generic-sqlite-db`, `upgrade-postgres`, `run-postgres-vacuum` — destructive or long-running, only run intentionally.
+- `systemd_service_manager` group/stop flows: `start-group`, `restart-group`, `stop`, `stop-all`, `stop-group` — these target a specific service group (require `--extra-vars group=...`) or stop services the deploy just started.
+
+To invoke any of them deliberately, see [Maintenance tasks](#maintenance-tasks) below.
 
 6. Re-encrypt and keep plaintext out of git:
 
@@ -137,6 +142,30 @@ ansible-playbook \
 ```
 
 By default vacuums the databases listed in `postgres_managed_databases` (so `resumer_app`). Override with `postgres_vacuum_default_databases_list` or `postgres_vacuum_query` per the role's defaults.
+
+### Restart, stop, or start a single service group
+
+Targets a slice of services registered in `devture_systemd_service_manager_services_list_additional`. Each service entry has a `groups: [...]` list (e.g. `core`, `postgres`); pass one of those names as the `group` extra-var.
+
+```bash
+ansible-playbook -i inventory/dev/hosts.ini \
+  --tags restart-group -e group=postgres playbooks/elemeno-dev.yml
+
+ansible-playbook -i inventory/dev/hosts.ini \
+  --tags start-group   -e group=postgres-backup playbooks/elemeno-dev.yml
+
+ansible-playbook -i inventory/dev/hosts.ini \
+  --tags stop-group    -e group=postgres-backup playbooks/elemeno-dev.yml
+```
+
+### Stop everything managed by systemd_service_manager
+
+Stops every service registered in the list above (currently `resumer-postgres.service` and `resumer-postgres-backup.service`). Compose containers (webapp, scraper, cloudflared) are not affected — those are managed by Docker Compose, not by this role.
+
+```bash
+ansible-playbook -i inventory/dev/hosts.ini \
+  --tags stop-all playbooks/elemeno-dev.yml
+```
 
 ## Notes
 
