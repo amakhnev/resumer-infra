@@ -41,13 +41,13 @@ jobs:
 
       - name: Verify SSH over Tailscale
         env:
-          ELEMENO_DEV_HOST: ${{ secrets.ELEMENO_DEV_HOST }}
+          ELEMENO_DEV_HOST: ${{ vars.ELEMENO_DEV_HOST }}
         run: |
           ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null alexey@"$ELEMENO_DEV_HOST" "hostname && docker --version"
 
       - name: Deploy with Ansible over Tailscale SSH
         env:
-          ELEMENO_DEV_HOST: ${{ secrets.ELEMENO_DEV_HOST }}
+          ELEMENO_DEV_HOST: ${{ vars.ELEMENO_DEV_HOST }}
         run: |
           ANSIBLE_CONFIG=elemeno-dev/ansible/ansible.cfg \
           ansible-playbook \
