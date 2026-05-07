@@ -17,7 +17,10 @@ postgres_container_unix_socket_enabled: true
 postgres_run_path: "{{ postgres_base_path }}/run"
 resumer_postgres_app_password: "REPLACE_ME_DB_PASSWORD"
 resumer_postgres_root_password: "REPLACE_ME_POSTGRES_ROOT_PASSWORD"
-postgres_connection_hostname: postgres
+# The container's DNS name on resumer_net is its container name, which equals
+# postgres_identifier (resumer-postgres). All connection strings and helpers
+# below use that exact name.
+postgres_connection_hostname: "{{ postgres_identifier }}"
 postgres_connection_username: postgres
 postgres_connection_password: "{{ resumer_postgres_root_password }}"
 postgres_managed_databases:
@@ -32,7 +35,7 @@ postgres_backup_container_network: resumer_net
 postgres_backup_architecture: amd64
 postgres_backup_uid: 1000
 postgres_backup_gid: 1000
-postgres_backup_connection_hostname: postgres
+postgres_backup_connection_hostname: "{{ postgres_identifier }}"
 postgres_backup_connection_username: postgres
 postgres_backup_connection_password: "{{ resumer_postgres_root_password }}"
 postgres_backup_databases_auto:

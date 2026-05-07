@@ -198,7 +198,7 @@ ssh -t alexey@elemeno-dev \
 
 ### Forward Postgres to your laptop for a GUI client
 
-For DBeaver, TablePlus, pgAdmin, or local `psql`, run this single command. It opens an SSH tunnel and starts a temporary `socat` side-car container on the Docker network that bridges from the host's localhost into the `postgres` container:
+For DBeaver, TablePlus, pgAdmin, or local `psql`, run this single command. It opens an SSH tunnel and starts a temporary `socat` side-car container on the Docker network that bridges from the host's localhost into the `resumer-postgres` container:
 
 ```bash
 ssh -L 15432:127.0.0.1:15432 alexey@elemeno-dev \
@@ -206,7 +206,7 @@ ssh -L 15432:127.0.0.1:15432 alexey@elemeno-dev \
     --network resumer_net \
     -p 127.0.0.1:15432:5432 \
     alpine/socat \
-    TCP-LISTEN:5432,fork TCP:postgres:5432
+    TCP-LISTEN:5432,fork TCP:resumer-postgres:5432
 ```
 
 Then connect your local client to:
