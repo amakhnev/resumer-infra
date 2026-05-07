@@ -1,4 +1,4 @@
-tunnel: REPLACE_WITH_TUNNEL_UUID
+tunnel: a1d25267-7d94-4fa7-a710-ab5ac4300acd
 credentials-file: /etc/cloudflared/credentials.json
 
 ingress:
