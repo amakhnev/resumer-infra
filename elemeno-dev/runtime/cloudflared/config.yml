@@ -1,0 +1,7 @@
+tunnel: REPLACE_WITH_TUNNEL_UUID
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: dev.resumer.io
+    service: http://webapp:3000
+  - service: http_status:404

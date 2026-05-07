@@ -1,0 +1,12 @@
+roles:
+  - name: postgres
+    src: https://github.com/mother-of-all-self-hosting/ansible-role-postgres.git
+    scm: git
+    version: main
+  - name: postgres_backup
+    src: https://github.com/mother-of-all-self-hosting/ansible-role-postgres-backup.git
+    scm: git
+    version: main
+
+collections:
+  - name: community.docker

@@ -1,0 +1,130 @@
+---
+- name: Provision elemeno-dev homelab runtime
+  hosts: elemeno_dev
+  become: true
+
+  pre_tasks:
+    - name: Ensure required apt packages are present
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+        state: present
+        update_cache: true
+
+    - name: Ensure docker python SDK is available
+      ansible.builtin.pip:
+        name:
+          - docker
+          - pyyaml
+        state: present
+        break_system_packages: true
+
+    - name: Ensure runtime root exists
+      ansible.builtin.file:
+        path: "{{ resumer_runtime_root }}"
+        state: directory
+        owner: "{{ resumer_runtime_owner }}"
+        group: "{{ resumer_runtime_group }}"
+        mode: "0755"
+
+    - name: Copy runtime files from repo
+      ansible.builtin.copy:
+        src: "{{ resumer_runtime_source_dir }}/"
+        dest: "{{ resumer_runtime_root }}/"
+        owner: "{{ resumer_runtime_owner }}"
+        group: "{{ resumer_runtime_group }}"
+        mode: preserve
+
+    - name: Ensure secrets root exists
+      ansible.builtin.file:
+        path: "{{ resumer_secrets_root }}"
+        state: directory
+        owner: "{{ resumer_runtime_owner }}"
+        group: "{{ resumer_runtime_group }}"
+        mode: "0755"
+
+    - name: Copy encrypted secrets from repo
+      ansible.builtin.copy:
+        src: "{{ resumer_secrets_source_dir }}/"
+        dest: "{{ resumer_secrets_root }}/"
+        owner: "{{ resumer_runtime_owner }}"
+        group: "{{ resumer_runtime_group }}"
+        mode: preserve
+
+    - name: Ensure encrypted Postgres secrets file exists
+      ansible.builtin.stat:
+        path: "{{ resumer_secrets_root }}/postgres.secrets.sops.yaml"
+      register: postgres_secrets_file
+
+    - name: Fail when encrypted Postgres secrets are missing
+      ansible.builtin.fail:
+        msg: "Missing {{ resumer_secrets_root }}/postgres.secrets.sops.yaml. Generate it with scripts/generate-elemeno-postgres-secrets.sh."
+      when: not postgres_secrets_file.stat.exists
+
+    - name: Decrypt Postgres secrets on server
+      become: true
+      become_user: alexey
+      ansible.builtin.shell: |
+        sops --input-type yaml --output-type yaml -d "{{ resumer_secrets_root }}/postgres.secrets.sops.yaml"
+      args:
+        executable: /bin/bash
+      register: postgres_secrets_decrypted
+      no_log: true
+
+    - name: Load decrypted Postgres secrets into runtime vars
+      ansible.builtin.set_fact:
+        resumer_postgres_app_password: "{{ (postgres_secrets_decrypted.stdout | from_yaml).postgres_app_password }}"
+        resumer_postgres_root_password: "{{ (postgres_secrets_decrypted.stdout | from_yaml).postgres_root_password }}"
+      no_log: true
+
+    - name: Ensure compose project uses configured images
+      ansible.builtin.replace:
+        path: "{{ resumer_runtime_root }}/docker-compose.yml"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - regexp: 'ghcr.io/resumerio/webapp:latest'
+          replace: "{{ resumer_webapp_image }}"
+        - regexp: 'ghcr.io/resumerio/scraper:latest'
+          replace: "{{ resumer_scraper_image }}"
+
+    - name: Decrypt webapp env file on server
+      become: true
+      become_user: alexey
+      ansible.builtin.shell: |
+        sops --input-type dotenv --output-type dotenv -d "{{ resumer_runtime_root }}/webapp/.env.production.local.enc" > "{{ resumer_runtime_root }}/webapp/.env.production.local"
+      args:
+        executable: /bin/bash
+
+    - name: Decrypt scraper env file on server
+      become: true
+      become_user: alexey
+      ansible.builtin.shell: |
+        sops --input-type dotenv --output-type dotenv -d "{{ resumer_runtime_root }}/scraper/.env.enc" > "{{ resumer_runtime_root }}/scraper/.env"
+      args:
+        executable: /bin/bash
+
+    - name: Decrypt cloudflared credentials on server
+      become: true
+      become_user: alexey
+      ansible.builtin.shell: |
+        sops --input-type json --output-type json -d "{{ resumer_runtime_root }}/cloudflared/credentials.json.enc" > "{{ resumer_runtime_root }}/cloudflared/credentials.json"
+      args:
+        executable: /bin/bash
+
+  roles:
+    - role: postgres
+    - role: postgres_backup
+
+  tasks:
+    - name: Ensure shared docker network exists
+      community.docker.docker_network:
+        name: resumer_net
+        state: present
+
+    - name: Deploy compose stack (app + scraper + cloudflared)
+      community.docker.docker_compose_v2:
+        project_src: "{{ resumer_compose_project_src }}"
+        pull: always
+        recreate: auto
+        state: present

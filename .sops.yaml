@@ -1,0 +1,24 @@
+creation_rules:
+  - path_regex: '(^|/)\.env(\.[^/]+)*\.local$'
+    encrypted_regex: '.*'
+    pgp: >-
+      4E50EE608B6009EE382435F947BAE30C46DB2DE4,
+      4B363302A56B677423688744E88551874C76E0A5,
+      32619C0BD8EECDF91679C960C56EC669141ED3DA
+  - path_regex: '(^|/)\.env$'
+    encrypted_regex: '.*'
+    pgp: >-
+      4E50EE608B6009EE382435F947BAE30C46DB2DE4,
+      4B363302A56B677423688744E88551874C76E0A5,
+      32619C0BD8EECDF91679C960C56EC669141ED3DA
+  - path_regex: '(^|/)cloudflared/credentials\.json$'
+    pgp: >-
+      4E50EE608B6009EE382435F947BAE30C46DB2DE4,
+      4B363302A56B677423688744E88551874C76E0A5,
+      32619C0BD8EECDF91679C960C56EC669141ED3DA
+  - path_regex: '(^|/)secrets/postgres\.secrets\.sops\.yaml$'
+    encrypted_regex: '^(postgres_app_password|postgres_root_password)$'
+    pgp: >-
+      4E50EE608B6009EE382435F947BAE30C46DB2DE4,
+      4B363302A56B677423688744E88551874C76E0A5,
+      32619C0BD8EECDF91679C960C56EC669141ED3DA

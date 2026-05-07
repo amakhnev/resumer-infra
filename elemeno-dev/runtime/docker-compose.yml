@@ -1,0 +1,40 @@
+services:
+  webapp:
+    image: ghcr.io/resumer-io/webapp:dev
+    container_name: resumer-webapp
+    restart: unless-stopped
+    env_file:
+      - ./webapp/.env.production.local
+    networks:
+      - resumer_net
+    depends_on:
+      - postgres
+
+  scraper:
+    image: ghcr.io/resumer-io/scraper:dev
+    container_name: resumer-scraper
+    restart: unless-stopped
+    env_file:
+      - ./scraper/.env
+    networks:
+      - resumer_net
+    depends_on:
+      - webapp
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: resumer-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --config /etc/cloudflared/config.yml
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+    networks:
+      - resumer_net
+    depends_on:
+      - webapp
+
+networks:
+  resumer_net:
+    name: resumer_net
+    external: true

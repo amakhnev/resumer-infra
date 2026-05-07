@@ -1,0 +1,55 @@
+name: Deploy elemeno-dev
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "elemeno-dev/**"
+      - "scripts/sops-env.sh"
+      - ".sops.yaml"
+      - ".github/workflows/deploy-elemeno-dev.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          python3 -m pip install --upgrade pip
+          python3 -m pip install ansible
+
+      - name: Install Ansible dependencies
+        run: |
+          ansible-galaxy role install -r elemeno-dev/ansible/requirements.yml
+          ansible-galaxy collection install -r elemeno-dev/ansible/requirements.yml
+
+      - name: Connect runner to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          args: --ssh --advertise-tags=tag:elemeno-ci
+
+      - name: Verify SSH over Tailscale
+        env:
+          ELEMENO_DEV_HOST: ${{ secrets.ELEMENO_DEV_HOST }}
+        run: |
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null alexey@"$ELEMENO_DEV_HOST" "hostname && docker --version"
+
+      - name: Deploy with Ansible over Tailscale SSH
+        env:
+          ELEMENO_DEV_HOST: ${{ secrets.ELEMENO_DEV_HOST }}
+        run: |
+          ANSIBLE_CONFIG=elemeno-dev/ansible/ansible.cfg \
+          ansible-playbook \
+            -i "elemeno_dev ansible_host=${ELEMENO_DEV_HOST} ansible_user=alexey," \
+            elemeno-dev/ansible/playbooks/elemeno-dev.yml

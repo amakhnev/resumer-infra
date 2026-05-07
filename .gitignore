@@ -1,0 +1,16 @@
+*.retry
+.DS_Store
+
+# Keep only encrypted env files in git
+**/.env
+**/.env.*.local
+**/cloudflared/credentials.json
+**/secrets/postgres.secrets.yaml
+!**/.env.enc
+!**/.env.*.local.enc
+!**/cloudflared/credentials.json.enc
+!**/secrets/postgres.secrets.sops.yaml
+!**/.env.example
+!**/.env.*.example
+!**/cloudflared/credentials.json.example
+!**/secrets/postgres.secrets.example.yaml

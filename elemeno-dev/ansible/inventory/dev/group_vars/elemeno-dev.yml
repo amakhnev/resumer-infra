@@ -1,0 +1,39 @@
+resumer_runtime_root: /opt/resumer
+resumer_runtime_owner: alexey
+resumer_runtime_group: alexey
+resumer_runtime_source_dir: "{{ playbook_dir }}/../../runtime"
+resumer_secrets_source_dir: "{{ playbook_dir }}/../../secrets"
+resumer_compose_project_src: "{{ resumer_runtime_root }}"
+resumer_secrets_root: "{{ resumer_runtime_root }}/secrets"
+
+# Postgres role
+postgres_identifier: resumer-postgres
+postgres_base_path: "{{ resumer_runtime_root }}/postgres"
+postgres_container_network: resumer_net
+postgres_uid: 1000
+postgres_gid: 1000
+postgres_container_unix_socket_enabled: true
+postgres_run_path: "{{ postgres_base_path }}/run"
+resumer_postgres_app_password: "REPLACE_ME_DB_PASSWORD"
+resumer_postgres_root_password: "REPLACE_ME_POSTGRES_ROOT_PASSWORD"
+postgres_managed_databases:
+  - name: resumer_app
+    username: resumer_app
+    password: "{{ resumer_postgres_app_password }}"
+
+# Postgres backup role
+postgres_backup_identifier: resumer-postgres-backup
+postgres_backup_base_path: "{{ resumer_runtime_root }}/postgres-backup"
+postgres_backup_container_network: resumer_net
+postgres_backup_architecture: amd64
+postgres_backup_uid: 1000
+postgres_backup_gid: 1000
+postgres_backup_connection_hostname: postgres
+postgres_backup_connection_username: postgres
+postgres_backup_connection_password: "{{ resumer_postgres_root_password }}"
+postgres_backup_databases_auto:
+  - resumer_app
+
+# Docker images used by compose
+resumer_webapp_image: ghcr.io/resumer-io/webapp:latest
+resumer_scraper_image: ghcr.io/resumer-io/scraper:latest
