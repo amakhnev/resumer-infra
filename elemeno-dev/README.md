@@ -312,7 +312,11 @@ Then connect your local client to:
 - User: `postgres` (superuser) or `resumer_app` (app user)
 - Password: from `sops -d` above
 
+One liner to combine the DATABSE_URL from the .env file with the password from the sops -d output:
+`export DATABASE_URL=postgresql://resumer_app:$(sops -d elemeno-dev/secrets/postgres.secrets.sops.yaml | grep postgres_app_password | cut -d: -f2)@resumer-postgres:5432/resumer_app`
+
 Press Ctrl-C in the SSH session to stop the tunnel; the side-car container is auto-removed (`--rm`). Port `15432` on both sides avoids collisions with any local Postgres on `5432`.
+If not removed, can be removed with `docker rm -f resumer-postgres-tunnel`.
 
 ## Notes
 
