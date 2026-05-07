@@ -113,8 +113,12 @@
         executable: /bin/bash
 
   roles:
+    - role: playbook_help
+    - role: playbook_runtime_messages
+    - role: systemd_docker_base
     - role: postgres
     - role: postgres_backup
+    - role: systemd_service_manager
 
   tasks:
     - name: Ensure shared docker network exists

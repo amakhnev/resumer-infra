@@ -1,4 +1,20 @@
 roles:
+  - name: playbook_help
+    src: https://github.com/devture/com.devture.ansible.role.playbook_help.git
+    scm: git
+    version: main
+  - name: playbook_runtime_messages
+    src: https://github.com/devture/com.devture.ansible.role.playbook_runtime_messages.git
+    scm: git
+    version: main
+  - name: systemd_docker_base
+    src: https://github.com/devture/com.devture.ansible.role.systemd_docker_base.git
+    scm: git
+    version: main
+  - name: systemd_service_manager
+    src: https://github.com/devture/com.devture.ansible.role.systemd_service_manager.git
+    scm: git
+    version: main
   - name: postgres
     src: https://github.com/mother-of-all-self-hosting/ansible-role-postgres.git
     scm: git

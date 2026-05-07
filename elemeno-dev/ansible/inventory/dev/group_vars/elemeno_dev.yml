@@ -38,6 +38,17 @@ postgres_backup_connection_password: "{{ resumer_postgres_root_password }}"
 postgres_backup_databases_auto:
   - resumer_app
 
+# Register the systemd services templated by the postgres roles so that
+# devture-systemd-service-manager enables and starts them at the end of the run.
+# Lower priority numbers start first; postgres must be up before backup runs.
+devture_systemd_service_manager_services_list_additional:
+  - name: "{{ postgres_identifier }}.service"
+    priority: 1000
+    groups: ["core", "postgres"]
+  - name: "{{ postgres_backup_identifier }}.service"
+    priority: 2000
+    groups: ["core", "postgres-backup"]
+
 # Docker images used by compose
 resumer_webapp_image: ghcr.io/resumer-io/web:dev
 resumer_scraper_image: ghcr.io/resumer-io/scraper:dev
