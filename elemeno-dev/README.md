@@ -75,5 +75,5 @@ rm -f elemeno-dev/runtime/webapp/.env.production.local elemeno-dev/runtime/scrap
 
 - Cloudflared credentials are committed only as `credentials.json.enc`; plaintext `credentials.json` is ignored by git.
 - Postgres passwords are committed only in `elemeno-dev/secrets/postgres.secrets.sops.yaml`; playbook decrypts this file on the server before applying Postgres roles.
-- `docker-compose.yml` uses image tags as placeholders (`ghcr.io/resumerio/...`); swap to your real build/publish targets.
+- `docker-compose.yml` uses image tags as placeholders (`ghcr.io/resumer-io/...`); swap to your real build/publish targets.
 - CI deploy over Tailscale SSH is defined in `.github/workflows/deploy-elemeno-dev.yml`.

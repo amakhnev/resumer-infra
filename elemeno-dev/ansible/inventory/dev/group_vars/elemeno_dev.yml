@@ -10,12 +10,16 @@ resumer_secrets_root: "{{ resumer_runtime_root }}/secrets"
 postgres_identifier: resumer-postgres
 postgres_base_path: "{{ resumer_runtime_root }}/postgres"
 postgres_container_network: resumer_net
+postgres_architecture: amd64
 postgres_uid: 1000
 postgres_gid: 1000
 postgres_container_unix_socket_enabled: true
 postgres_run_path: "{{ postgres_base_path }}/run"
 resumer_postgres_app_password: "REPLACE_ME_DB_PASSWORD"
 resumer_postgres_root_password: "REPLACE_ME_POSTGRES_ROOT_PASSWORD"
+postgres_connection_hostname: postgres
+postgres_connection_username: postgres
+postgres_connection_password: "{{ resumer_postgres_root_password }}"
 postgres_managed_databases:
   - name: resumer_app
     username: resumer_app

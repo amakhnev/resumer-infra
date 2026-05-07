@@ -83,9 +83,9 @@
         regexp: "{{ item.regexp }}"
         replace: "{{ item.replace }}"
       loop:
-        - regexp: 'ghcr.io/resumerio/webapp:latest'
+        - regexp: 'ghcr.io/resumer-io/web:dev'
           replace: "{{ resumer_webapp_image }}"
-        - regexp: 'ghcr.io/resumerio/scraper:latest'
+        - regexp: 'ghcr.io/resumer-io/scraper:dev'
           replace: "{{ resumer_scraper_image }}"
 
     - name: Decrypt webapp env file on server
