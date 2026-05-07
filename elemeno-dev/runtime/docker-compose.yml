@@ -25,7 +25,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: resumer-cloudflared
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --config /etc/cloudflared/config.yml
+    command: --config /etc/cloudflared/config.yml tunnel --no-autoupdate run
     volumes:
       - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
       - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro

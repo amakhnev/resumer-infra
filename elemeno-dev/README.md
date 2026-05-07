@@ -167,6 +167,58 @@ ansible-playbook -i inventory/dev/hosts.ini \
   --tags stop-all playbooks/elemeno-dev.yml
 ```
 
+## Inspect the database
+
+Postgres binds only to the `resumer_net` Docker network on `elemeno-dev` — there is no host-level port published. That is intentional (no Tailscale or LAN exposure of port 5432). To inspect the database, pick the option that matches your tool.
+
+The Postgres password lives in `elemeno-dev/secrets/postgres.secrets.sops.yaml`. Read it locally with:
+
+```bash
+sops -d elemeno-dev/secrets/postgres.secrets.sops.yaml
+```
+
+Use `postgres_root_password` for superuser access (`postgres` user) or `postgres_app_password` for app-level access (`resumer_app` user).
+
+### Quick `psql` shell on the VM
+
+The Postgres role installs a helper at `/opt/resumer/postgres/bin/cli`. SSH in and run it:
+
+```bash
+ssh -t alexey@elemeno-dev /opt/resumer/postgres/bin/cli
+```
+
+This drops you into a `psql` prompt as the `postgres` superuser inside the container — no local Postgres tooling required, no port forwarding. Switch databases once inside with `\c resumer_app`.
+
+For a one-off command instead of an interactive shell, use `docker exec` directly:
+
+```bash
+ssh -t alexey@elemeno-dev \
+  docker exec -i resumer-postgres psql -U postgres -d resumer_app -c '\dt'
+```
+
+### Forward Postgres to your laptop for a GUI client
+
+For DBeaver, TablePlus, pgAdmin, or local `psql`, run this single command. It opens an SSH tunnel and starts a temporary `socat` side-car container on the Docker network that bridges from the host's localhost into the `postgres` container:
+
+```bash
+ssh -L 15432:127.0.0.1:15432 alexey@elemeno-dev \
+  docker run --rm --name resumer-postgres-tunnel \
+    --network resumer_net \
+    -p 127.0.0.1:15432:5432 \
+    alpine/socat \
+    TCP-LISTEN:5432,fork TCP:postgres:5432
+```
+
+Then connect your local client to:
+
+- Host: `localhost`
+- Port: `15432`
+- Database: `resumer_app`
+- User: `postgres` (superuser) or `resumer_app` (app user)
+- Password: from `sops -d` above
+
+Press Ctrl-C in the SSH session to stop the tunnel; the side-car container is auto-removed (`--rm`). Port `15432` on both sides avoids collisions with any local Postgres on `5432`.
+
 ## Notes
 
 - Cloudflared credentials are committed only as `credentials.json.enc`; plaintext `credentials.json` is ignored by git.
