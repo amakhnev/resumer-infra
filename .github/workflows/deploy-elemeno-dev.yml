@@ -55,4 +55,5 @@ jobs:
           ansible-playbook \
             -i elemeno-dev/ansible/inventory/dev/hosts.ini \
             -e "ansible_host=${ELEMENO_DEV_HOST}" \
+            --skip-tags "import-postgres,import-generic-sqlite-db,upgrade-postgres,run-postgres-vacuum" \
             elemeno-dev/ansible/playbooks/elemeno-dev.yml

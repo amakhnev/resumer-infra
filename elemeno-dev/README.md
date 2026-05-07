@@ -61,8 +61,13 @@ PowerShell:
 
 ```bash
 cd elemeno-dev/ansible
-ansible-playbook -i inventory/dev/hosts.ini playbooks/elemeno-dev.yml
+ansible-playbook \
+  -i inventory/dev/hosts.ini \
+  --skip-tags "import-postgres,import-generic-sqlite-db,upgrade-postgres,run-postgres-vacuum" \
+  playbooks/elemeno-dev.yml
 ```
+
+The `--skip-tags` flag matches the CI workflow and excludes destructive maintenance flows that the upstream Postgres role gates only by tag (so they would otherwise run on every deploy). To invoke any of them deliberately, see [Maintenance tasks](#maintenance-tasks) below.
 
 6. Re-encrypt and keep plaintext out of git:
 
@@ -70,6 +75,68 @@ ansible-playbook -i inventory/dev/hosts.ini playbooks/elemeno-dev.yml
 ./scripts/sops-env.sh . encrypt
 rm -f elemeno-dev/runtime/webapp/.env.production.local elemeno-dev/runtime/scraper/.env elemeno-dev/runtime/cloudflared/credentials.json
 ```
+
+## Maintenance tasks
+
+The Postgres role from MASH ships several optional flows gated only by tag. The default deploy (CI and the local command above) skips them via `--skip-tags`. Run them ad-hoc from a workstation that has SSH access to the host (Tailscale or otherwise) when needed.
+
+The pattern is always: pass the matching `--tags`, plus any required `--extra-vars`, against the same inventory.
+
+### Restore from a Postgres dump
+
+Use when seeding a host from an existing SQL dump produced by `pg_dump` (or by the `postgres-backup` container).
+
+```bash
+ansible-playbook \
+  -i inventory/dev/hosts.ini \
+  --tags import-postgres \
+  -e server_path_postgres_dump=/opt/resumer/postgres-backup/data/daily/resumer_app-YYYY-MM-DD.sql.gz \
+  playbooks/elemeno-dev.yml
+```
+
+The dump path must already be reachable on the **target server**. The role detects `.sql`, `.sql.gz`, and `.sql.xz` and pipes through the matching decompressor.
+
+Destructive: this will recreate database objects from the dump.
+
+### Convert a SQLite database into Postgres
+
+Use when migrating a service from SQLite to Postgres. See `tasks/import_generic_sqlite_db.yml` in the upstream role for the full set of required `--extra-vars` (database name, source SQLite path on the server, etc.).
+
+```bash
+ansible-playbook \
+  -i inventory/dev/hosts.ini \
+  --tags import-generic-sqlite-db \
+  -e ... \
+  playbooks/elemeno-dev.yml
+```
+
+Destructive into the target Postgres database.
+
+### Major-version Postgres upgrade
+
+Use only when intentionally moving to a newer Postgres major (e.g. 16 → 17). The role stops the running container, dumps all databases, replaces the data directory, starts the new image, and restores from the dump.
+
+```bash
+ansible-playbook \
+  -i inventory/dev/hosts.ini \
+  --tags upgrade-postgres \
+  playbooks/elemeno-dev.yml
+```
+
+Take a manual backup first. Plan downtime; the host's webapp/scraper containers will lose their database mid-task.
+
+### Run VACUUM
+
+Use when bloat is suspected or after a large delete. Not destructive but can lock tables and run for a long time.
+
+```bash
+ansible-playbook \
+  -i inventory/dev/hosts.ini \
+  --tags run-postgres-vacuum \
+  playbooks/elemeno-dev.yml
+```
+
+By default vacuums the databases listed in `postgres_managed_databases` (so `resumer_app`). Override with `postgres_vacuum_default_databases_list` or `postgres_vacuum_query` per the role's defaults.
 
 ## Notes
 
