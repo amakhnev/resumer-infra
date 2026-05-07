@@ -7,8 +7,6 @@ services:
       - ./webapp/.env.production.local
     networks:
       - resumer_net
-    depends_on:
-      - postgres
 
   scraper:
     image: ghcr.io/resumer-io/scraper:dev
