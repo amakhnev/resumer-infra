@@ -128,3 +128,4 @@
         pull: always
         recreate: auto
         state: present
+        profiles: "{{ resumer_compose_profiles }}"

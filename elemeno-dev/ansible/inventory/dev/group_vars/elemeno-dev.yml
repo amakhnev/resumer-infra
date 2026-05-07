@@ -35,5 +35,9 @@ postgres_backup_databases_auto:
   - resumer_app
 
 # Docker images used by compose
-resumer_webapp_image: ghcr.io/resumer-io/webapp:latest
-resumer_scraper_image: ghcr.io/resumer-io/scraper:latest
+resumer_webapp_image: ghcr.io/resumer-io/web:dev
+resumer_scraper_image: ghcr.io/resumer-io/scraper:dev
+
+# Compose profiles to enable on this host. Add "scraper" once the scraper image
+# is published to ghcr.io to start the scraper container.
+resumer_compose_profiles: []

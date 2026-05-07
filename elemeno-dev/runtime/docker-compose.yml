@@ -1,6 +1,6 @@
 services:
   webapp:
-    image: ghcr.io/resumer-io/webapp:dev
+    image: ghcr.io/resumer-io/web:dev
     container_name: resumer-webapp
     restart: unless-stopped
     env_file:
@@ -20,6 +20,8 @@ services:
       - resumer_net
     depends_on:
       - webapp
+    profiles:
+      - scraper
 
   cloudflared:
     image: cloudflare/cloudflared:latest
