@@ -55,7 +55,7 @@ PowerShell:
 
 - `elemeno-dev/runtime/webapp/.env.production.local`
 - `elemeno-dev/runtime/scraper/.env`
-- `elemeno-dev/runtime/cloudflared/credentials.json`
+- `elemeno-dev/runtime/cloudflared/credentials.json` — produced by [Cloudflare Tunnel setup](#cloudflare-tunnel-setup) below on a first-time setup; otherwise reuse the existing encrypted copy
 
 5. Deploy:
 
@@ -80,6 +80,98 @@ To invoke any of them deliberately, see [Maintenance tasks](#maintenance-tasks) 
 ./scripts/sops-env.sh . encrypt
 rm -f elemeno-dev/runtime/webapp/.env.production.local elemeno-dev/runtime/scraper/.env elemeno-dev/runtime/cloudflared/credentials.json
 ```
+
+## Cloudflare Tunnel setup
+
+One-time, when first creating the tunnel for this host (or rotating its secret). After this, `credentials.json.enc` lives in the repo and the playbook reuses it on every deploy.
+
+This setup uses the locally-managed tunnel mode — config (`config.yml`) lives in this repo, secrets (`credentials.json`) are SOPS-encrypted alongside it. Sourced from the [Cloudflare Tunnel API docs](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel-api/).
+
+### 1. Prepare an API token and IDs
+
+Create an API token at Cloudflare → My Profile → API Tokens with these permissions:
+
+| Type    | Item              | Permission |
+|---------|-------------------|------------|
+| Account | Cloudflare Tunnel | Edit       |
+| Zone    | DNS               | Edit (scoped to `resumer.io`) |
+
+Then export the token plus your account ID and zone ID into your shell:
+
+```bash
+export CLOUDFLARE_API_TOKEN='<token>'
+export ACCOUNT_ID='<account-id>'   # Cloudflare dashboard right sidebar
+export ZONE_ID='<zone-id>'         # resumer.io DNS page right sidebar
+```
+
+### 2. Create the tunnel
+
+`config_src: "local"` is the important bit — it tells Cloudflare this tunnel is configured by local files, not by the dashboard.
+
+```bash
+curl "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/cfd_tunnel" \
+  --request POST \
+  --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --json '{
+    "name": "elemeno-dev-tunnel",
+    "config_src": "local"
+  }' | jq .
+```
+
+The response includes a `result.credentials_file` object — that is exactly what `cloudflared` expects on disk (with capitalised keys: `AccountTag`, `TunnelID`, `TunnelSecret`). Capture it:
+
+```bash
+TUNNEL_RESPONSE="$(curl -s "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/cfd_tunnel" \
+  --request POST \
+  --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --json '{"name":"elemeno-dev-tunnel","config_src":"local"}')"
+
+echo "$TUNNEL_RESPONSE" \
+  | jq '.result.credentials_file' \
+  > elemeno-dev/runtime/cloudflared/credentials.json
+
+TUNNEL_ID="$(echo "$TUNNEL_RESPONSE" | jq -r '.result.id')"
+echo "Tunnel ID: $TUNNEL_ID"
+```
+
+### 3. Point `config.yml` at the new tunnel
+
+Replace the `tunnel:` value in `elemeno-dev/runtime/cloudflared/config.yml` with `$TUNNEL_ID` from above. The rest of `config.yml` (ingress rules, hostname, target service) stays as-is.
+
+### 4. Create the DNS record
+
+CNAME `dev.resumer.io` to `<TUNNEL_ID>.cfargotunnel.com` so Cloudflare's edge knows where to route the hostname:
+
+```bash
+curl "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+  --request POST \
+  --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  --json "$(jq -n --arg id "$TUNNEL_ID" '{
+    type: "CNAME",
+    proxied: true,
+    name: "dev.resumer.io",
+    content: ($id + ".cfargotunnel.com")
+  }')"
+```
+
+If the record already exists from a previous tunnel, this returns an error; either delete the old record first (`GET /zones/$ZONE_ID/dns_records?name=dev.resumer.io` then `DELETE`) or use the dashboard to repoint it to the new tunnel ID.
+
+CLI alternative if you prefer not to call the DNS API directly: `cloudflared tunnel login` once (browser auth) then `cloudflared tunnel route dns "$TUNNEL_ID" dev.resumer.io --overwrite-dns`.
+
+### 5. Encrypt and clean up
+
+The plaintext `credentials.json` is gitignored. Encrypt it for the repo and drop the plaintext copy:
+
+```bash
+./scripts/sops-env.sh . encrypt
+rm -f elemeno-dev/runtime/cloudflared/credentials.json
+git add elemeno-dev/runtime/cloudflared/credentials.json.enc \
+        elemeno-dev/runtime/cloudflared/config.yml
+git commit -m "cloudflared: rotate tunnel for elemeno-dev"
+git push
+```
+
+CI will pick up the new encrypted credentials and `config.yml` on the next deploy. Verify after with `docker logs resumer-cloudflared --tail 20` — expect four `Connection ... registered` lines.
 
 ## Maintenance tasks
 
@@ -202,12 +294,15 @@ For DBeaver, TablePlus, pgAdmin, or local `psql`, run this single command. It op
 
 ```bash
 ssh -L 15432:127.0.0.1:15432 alexey@elemeno-dev \
-  docker run --rm --name resumer-postgres-tunnel \
-    --network resumer_net \
-    -p 127.0.0.1:15432:5432 \
-    alpine/socat \
-    TCP-LISTEN:5432,fork TCP:resumer-postgres:5432
+  sh -c 'docker rm -f resumer-postgres-tunnel >/dev/null 2>&1; \
+         docker run --rm --name resumer-postgres-tunnel \
+           --network resumer_net \
+           -p 127.0.0.1:15432:5432 \
+           alpine/socat \
+           TCP-LISTEN:5432,fork TCP:resumer-postgres:5432'
 ```
+
+The `docker rm -f` prefix is idempotent: it cleans up a stale container left over from a previous tunnel that exited abnormally (Ctrl-C, dropped SSH, etc.) where `--rm` didn't get to run.
 
 Then connect your local client to:
 
