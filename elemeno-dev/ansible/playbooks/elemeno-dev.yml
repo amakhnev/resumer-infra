@@ -121,12 +121,18 @@
     - role: systemd_service_manager
 
   tasks:
+    # Compose-managed services run under the runtime owner (alexey) rather than
+    # root. Why: registry credentials live in /home/alexey/.docker/config.json
+    # after `docker login`, and runtime files in /opt/resumer are owned by alexey.
+    # Requires `alexey` to be a member of the `docker` group on the host.
     - name: Ensure shared docker network exists
+      become: false
       community.docker.docker_network:
         name: resumer_net
         state: present
 
     - name: Deploy compose stack (app + scraper + cloudflared)
+      become: false
       community.docker.docker_compose_v2:
         project_src: "{{ resumer_compose_project_src }}"
         pull: always
